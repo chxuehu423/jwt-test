@@ -3,25 +3,33 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Foundation\Bus\DispatchesJobs;
+use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
+use Psr\Http\Message\ServerRequestInterface;
+use Illuminate\Routing\Controller as BaseController;
 
 class AuthController extends Controller
 {
+    use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
     /**
      * Create a new AuthController instance.
      * 要求附带email和password（数据来源users表）
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(ServerRequestInterface $serverRequest)
     {
         // 这里额外注意了：官方文档样例中只除外了『login』
         // 这样的结果是，token 只能在有效期以内进行刷新，过期无法刷新
         // 如果把 refresh 也放进去，token 即使过期但仍在刷新期以内也可刷新
         // 不过刷新一次作废
-        $this->middleware('jwt.auth', ['except' => ['login']]);
+        $this->middleware('jwt.auth', ['except' => ['login', 'refresh']]);
         // 另外关于上面的中间件，官方文档写的是『auth:api』
         // 但是我推荐用 『jwt.auth』，效果是一样的，但是有更加丰富的报错信息返回
+        parent::__construct($serverRequest);
     }
 
     /**
@@ -37,8 +45,10 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }*/
         $user = User::find(1);
-        $customClaims = $user->only(['nick_name', 'real_name', 'node_type', 'user_type']);
-        $token = auth('api')->claims($customClaims)->login($user);
+        //设置额外载荷的方法
+        /*$customClaims = $user->only(['nick_name', 'real_name', 'node_type', 'user_type']);
+        $token = auth('api')->claims($customClaims)->login($user);*/
+        $token = auth('api')->login($user);
 
         return $this->respondWithToken($token);
     }
@@ -51,7 +61,9 @@ class AuthController extends Controller
     public function me()
     {
         //dd(auth('api')->user());
-        return response()->json(auth('api')->user()->only('nick_name', 'real_name', 'node_type', 'user_type'));
+        //auth('api')->user()返回的是User模型的实例，可用所有模型和集合的方法
+        return $this->renderJsonWithSuccess(auth('api')->user());
+        //return response()->json(auth('api')->user());
     }
 
     /**
@@ -63,7 +75,8 @@ class AuthController extends Controller
     {
         auth('api')->logout();
 
-        return response()->json(['message' => 'Successfully logged out']);
+        return $this->renderJsonWithSuccess([], 'Successfully logged out');
+        //return response()->json(['message' => 'Successfully logged out']);
     }
 
     /**
@@ -86,10 +99,16 @@ class AuthController extends Controller
      */
     protected function respondWithToken($token)
     {
-        return response()->json([
+        $data = [
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_time' => Carbon::now()->timestamp+(auth('api')->factory()->getTTL() * 60)
+        ];
+        return $this->renderJsonWithSuccess($data);
+        /*return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => auth('api')->factory()->getTTL() * 60
-        ]);
+        ]);*/
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Utils\JsonBase;
 use Dotenv\Exception\ValidationException;
 use Exception;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
@@ -42,18 +43,19 @@ class Handler extends ExceptionHandler
 
     /**
      * Render an exception into an HTTP response.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Exception  $exception
-     * @return \Illuminate\Http\Response
+     * @param \Illuminate\Http\Request $request
+     * @param Exception $exception
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\Response|\Symfony\Component\HttpFoundation\Response
      */
     public function render($request, Exception $exception)
     {
         if ($exception instanceof ValidationException){
-            return response(['error' => Arr::first(Arr::collapse($exception->errors()))], 400);
+            //return response(['error' => Arr::first(Arr::collapse($exception->errors()))], 400);
+            return JsonBase::renderJsonWithFail($exception->getMessage(), [], 1, 1002, 400);
         }
         if ($exception instanceof UnauthorizedHttpException){
-            return response($exception->getMessage(), 401);
+            //return response($exception->getMessage(), 401);
+            return JsonBase::renderJsonWithFail($exception->getMessage(), [], 1, 1002, 401);
         }
         return parent::render($request, $exception);
     }

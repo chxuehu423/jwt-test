@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Utils\BLogger;
 use Closure;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
@@ -39,6 +40,8 @@ class RefreshToken extends BaseMiddleware
                 throw new UnauthorizedHttpException('jwt-auth', $exception->getMessage());
             }
         }
+        //dd(auth('api')->check());
+        BLogger::writeInfoLog('refreshToken:'.json_encode(auth('api')->user()));
         // 在响应头中返回新的 token
         return $this->setAuthenticationHeader($next($request), $token);
     }
